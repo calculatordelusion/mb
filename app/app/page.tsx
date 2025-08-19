@@ -54,10 +54,17 @@ const Page = () => {
       setIsImageSetupDone(false);
       console.log('Starting background removal...');
       
-      const imageBlob = await removeBackground(imageUrl);
+      // Get both foreground and background
+      const result = await removeBackground(imageUrl, {
+        output: {
+          format: 'image/png',
+          quality: 0.8
+        }
+      });
+      
       console.log('Background removal completed');
       
-      const url = URL.createObjectURL(imageBlob);
+      const url = URL.createObjectURL(result);
       setRemovedBgImageUrl(url);
       setIsImageSetupDone(true);
       console.log('Image setup completed successfully');
@@ -147,86 +154,103 @@ const Page = () => {
       // 4) Create a composite with text behind the main subject
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      if (removedBgImageUrl) {
-        // If we have background removal, create proper layering:
-        // 1. Draw original background (without the main subject)
-        // 2. Draw text on top of background
-        // 3. Draw main subject on top of text
-        
-        // First, draw the original image as background
-        ctx.drawImage(bgImg, 0, 0, imgW, imgH);
-        
-        // Then draw text layers
-        textSets.forEach(textSet => {
-          ctx.save();
+                    if (removedBgImageUrl) {
+         // If we have background removal, create proper layering:
+         // 1. Draw background elements (cars, buildings, road) - NOT the main subject
+         // 2. Draw text on top of background
+         // 3. Draw main subject (girl) on top of text
+         
+         // Create a temporary canvas to extract background without main subject
+         const tempCanvas = document.createElement('canvas');
+         const tempCtx = tempCanvas.getContext('2d');
+         tempCanvas.width = imgW;
+         tempCanvas.height = imgH;
+         
+         // Load the removed background image (which contains only the main subject)
+         const removedBgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
+         removedBgImg.crossOrigin = "anonymous";
+         removedBgImg.onload = () => {
+           // Draw original image to temp canvas
+           tempCtx!.drawImage(bgImg, 0, 0, imgW, imgH);
+           
+           // Use composite operation to remove the main subject from background
+           tempCtx!.globalCompositeOperation = 'destination-out';
+           tempCtx!.drawImage(removedBgImg, 0, 0, imgW, imgH);
+           
+           // Reset composite operation
+           tempCtx!.globalCompositeOperation = 'source-over';
+           
+           // Now draw the background (without main subject) to main canvas
+           ctx.drawImage(tempCanvas, 0, 0, imgW, imgH);
+           
+           // Then draw text layers
+           textSets.forEach(textSet => {
+             ctx.save();
 
-          // Convert % (relative to preview box) into preview pixels:
-          const xPreview = (boxW * (textSet.left + 50)) / 100;     // same formula used on-screen
-          const yPreview = (boxH * (50 - textSet.top)) / 100;
+             // Convert % (relative to preview box) into preview pixels:
+             const xPreview = (boxW * (textSet.left + 50)) / 100;     // same formula used on-screen
+             const yPreview = (boxH * (50 - textSet.top)) / 100;
 
-          // Convert preview pixels into image pixels by removing letterbox and scaling
-          const xImg = (xPreview - contain.dx) * toImageScale;
-          const yImg = (yPreview - contain.dy) * toImageScale;
+             // Convert preview pixels into image pixels by removing letterbox and scaling
+             const xImg = (xPreview - contain.dx) * toImageScale;
+             const yImg = (yPreview - contain.dy) * toImageScale;
 
-          // Scale font size, letterSpacing, shadow to image pixels
-          const fontSizePx = Math.max(1, textSet.fontSize * toImageScale);
-          const spacingPx = (textSet.letterSpacing || 0) * toImageScale;
-          const shadowBlurPx = (textSet.shadowSize || 0) * toImageScale;
+             // Scale font size, letterSpacing, shadow to image pixels
+             const fontSizePx = Math.max(1, textSet.fontSize * toImageScale);
+             const spacingPx = (textSet.letterSpacing || 0) * toImageScale;
+             const shadowBlurPx = (textSet.shadowSize || 0) * toImageScale;
 
-          ctx.font = `${textSet.fontWeight} ${fontSizePx}px ${textSet.fontFamily}`;
-          ctx.fillStyle = textSet.color;
-          ctx.globalAlpha = textSet.opacity;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
+             ctx.font = `${textSet.fontWeight} ${fontSizePx}px ${textSet.fontFamily}`;
+             ctx.fillStyle = textSet.color;
+             ctx.globalAlpha = textSet.opacity;
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'middle';
 
-          // Approximate CSS textShadow using canvas shadows
-          ctx.shadowColor = textSet.shadowColor || 'rgba(0,0,0,0)';
-          ctx.shadowBlur = shadowBlurPx;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
+             // Approximate CSS textShadow using canvas shadows
+             ctx.shadowColor = textSet.shadowColor || 'rgba(0,0,0,0)';
+             ctx.shadowBlur = shadowBlurPx;
+             ctx.shadowOffsetX = 0;
+             ctx.shadowOffsetY = 0;
 
-          // Apply tilt/rotation transforms
-          ctx.translate(xImg, yImg);
-          const tiltXRad = (-textSet.tiltX * Math.PI) / 180;
-          const tiltYRad = (-textSet.tiltY * Math.PI) / 180;
-          ctx.transform(
-            Math.cos(tiltYRad),
-            0,
-            0,
-            Math.cos(tiltXRad),
-            0,
-            0
-          );
-          ctx.rotate((textSet.rotation * Math.PI) / 180);
+             // Apply tilt/rotation transforms
+             ctx.translate(xImg, yImg);
+             const tiltXRad = (-textSet.tiltX * Math.PI) / 180;
+             const tiltYRad = (-textSet.tiltY * Math.PI) / 180;
+             ctx.transform(
+               Math.cos(tiltYRad),
+               0,
+               0,
+               Math.cos(tiltXRad),
+               0,
+               0
+             );
+             ctx.rotate((textSet.rotation * Math.PI) / 180);
 
-          // Render with optional letter-spacing
-          if (!spacingPx) {
-            ctx.fillText(textSet.text, 0, 0);
-          } else {
-            const chars = String(textSet.text).split('');
-            const totalWidth = chars.reduce((acc, ch, i) => {
-              const w = ctx.measureText(ch).width;
-              return acc + w + (i < chars.length - 1 ? spacingPx : 0);
-            }, 0);
-            let currentX = -totalWidth / 2;
-            chars.forEach((ch) => {
-              const w = ctx.measureText(ch).width;
-              ctx.fillText(ch, currentX + w / 2, 0);
-              currentX += w + spacingPx;
-            });
-          }
+             // Render with optional letter-spacing
+             if (!spacingPx) {
+               ctx.fillText(textSet.text, 0, 0);
+             } else {
+               const chars = String(textSet.text).split('');
+               const totalWidth = chars.reduce((acc, ch, i) => {
+                 const w = ctx.measureText(ch).width;
+                 return acc + w + (i < chars.length - 1 ? spacingPx : 0);
+               }, 0);
+               let currentX = -totalWidth / 2;
+               chars.forEach((ch) => {
+                 const w = ctx.measureText(ch).width;
+                 ctx.fillText(ch, currentX + w / 2, 0);
+                 currentX += w + spacingPx;
+               });
+             }
 
-          ctx.restore();
-        });
-        
-        // Finally, overlay the main subject (person/object) on top of text
-        const removedBgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
-        removedBgImg.crossOrigin = "anonymous";
-        removedBgImg.onload = () => {
-          ctx.drawImage(removedBgImg, 0, 0, imgW, imgH);
-          triggerDownload();
-        };
-        removedBgImg.src = removedBgImageUrl;
+             ctx.restore();
+           });
+           
+           // Finally, overlay the main subject (person/object) on top of text
+           ctx.drawImage(removedBgImg, 0, 0, imgW, imgH);
+           triggerDownload();
+         };
+         removedBgImg.src = removedBgImageUrl;
       } else {
         // If no background removal, just draw original image with text on top
         ctx.drawImage(bgImg, 0, 0, imgW, imgH);
