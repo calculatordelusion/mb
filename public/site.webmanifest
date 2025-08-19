@@ -1,0 +1,51 @@
+{
+  "name": "Text Behind Image - AI-Powered Text Effects Tool",
+  "short_name": "Text Behind Image",
+  "description": "Transform your images with AI-powered text behind image effects. Create stunning designs in seconds.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["design", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Text Behind Image Tool Interface"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Text Behind Image Tool Mobile Interface"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create New Design",
+      "short_name": "New Design",
+      "description": "Start creating a new text behind image design",
+      "url": "/app",
+      "icons": [
+        {
+          "src": "/favicon-32x32.png",
+          "sizes": "32x32"
+        }
+      ]
+    }
+  ]
+}
