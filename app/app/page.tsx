@@ -16,8 +16,7 @@ import { ModeToggle } from '@/components/mode-toggle';
 import TextCustomizer from '@/components/editor/text-customizer';
 
 import { PlusIcon, ReloadIcon, UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
-// Remove the static import
-// import { removeBackground } from "@imgly/background-removal";
+import { removeBackground } from "@imgly/background-removal";
 
 import '@/app/fonts.css';
 import AppAds from '@/components/editor/app-ads';
@@ -53,14 +52,20 @@ const Page = () => {
   const setupImage = async (imageUrl: string) => {
     try {
       setIsImageSetupDone(false);
-      // Dynamically import the background removal module
-      const { removeBackground } = await import("@imgly/background-removal");
+      console.log('Starting background removal...');
+      
       const imageBlob = await removeBackground(imageUrl);
+      console.log('Background removal completed');
+      
       const url = URL.createObjectURL(imageBlob);
       setRemovedBgImageUrl(url);
       setIsImageSetupDone(true);
+      console.log('Image setup completed successfully');
     } catch (error) {
-      console.error(error);
+      console.error('Background removal error:', error);
+      setIsImageSetupDone(true); // Set to true so user can still use the app
+      // Fallback: use original image if background removal fails
+      setRemovedBgImageUrl(imageUrl);
     }
   };
 
