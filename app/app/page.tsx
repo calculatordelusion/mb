@@ -144,11 +144,11 @@ const Page = () => {
       // If the image is displayed as "dw x dh" in preview, then each preview pixel corresponds to (imgW/dw) image pixels.
       const toImageScale = imgW / contain.dw; // same as imgH / contain.dh
 
-      // 4) Draw the base image to fill the final canvas
+      // 4) Draw the base image to fill the final canvas (background)
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bgImg, 0, 0, imgW, imgH);
 
-      // 5) Draw all text layers, converting preview positions to image coordinates
+      // 5) Draw all text layers BETWEEN background and foreground
       textSets.forEach(textSet => {
         ctx.save();
 
@@ -211,7 +211,7 @@ const Page = () => {
         ctx.restore();
       });
 
-      // 6) Overlay the "removed background" subject (same original image size)
+      // 6) Overlay the foreground subjects (people/objects) on top of text
       if (removedBgImageUrl) {
         const removedBgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
         removedBgImg.crossOrigin = "anonymous";
