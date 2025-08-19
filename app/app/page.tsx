@@ -144,75 +144,82 @@ const Page = () => {
       // If the image is displayed as "dw x dh" in preview, then each preview pixel corresponds to (imgW/dw) image pixels.
       const toImageScale = imgW / contain.dw; // same as imgH / contain.dh
 
-      // 4) Draw the base image to fill the final canvas (background)
+      // 4) Create a composite with text behind the main subject
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bgImg, 0, 0, imgW, imgH);
-
-      // 5) Draw all text layers BETWEEN background and foreground
-      textSets.forEach(textSet => {
-        ctx.save();
-
-        // Convert % (relative to preview box) into preview pixels:
-        const xPreview = (boxW * (textSet.left + 50)) / 100;     // same formula used on-screen
-        const yPreview = (boxH * (50 - textSet.top)) / 100;
-
-        // Convert preview pixels into image pixels by removing letterbox and scaling
-        const xImg = (xPreview - contain.dx) * toImageScale;
-        const yImg = (yPreview - contain.dy) * toImageScale;
-
-        // Scale font size, letterSpacing, shadow to image pixels
-        const fontSizePx = Math.max(1, textSet.fontSize * toImageScale);
-        const spacingPx = (textSet.letterSpacing || 0) * toImageScale;
-        const shadowBlurPx = (textSet.shadowSize || 0) * toImageScale;
-
-        ctx.font = `${textSet.fontWeight} ${fontSizePx}px ${textSet.fontFamily}`;
-        ctx.fillStyle = textSet.color;
-        ctx.globalAlpha = textSet.opacity;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        // Approximate CSS textShadow using canvas shadows
-        ctx.shadowColor = textSet.shadowColor || 'rgba(0,0,0,0)';
-        ctx.shadowBlur = shadowBlurPx;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        // Apply tilt/rotation transforms
-        ctx.translate(xImg, yImg);
-        const tiltXRad = (-textSet.tiltX * Math.PI) / 180;
-        const tiltYRad = (-textSet.tiltY * Math.PI) / 180;
-        ctx.transform(
-          Math.cos(tiltYRad),
-          0,
-          0,
-          Math.cos(tiltXRad),
-          0,
-          0
-        );
-        ctx.rotate((textSet.rotation * Math.PI) / 180);
-
-        // Render with optional letter-spacing
-        if (!spacingPx) {
-          ctx.fillText(textSet.text, 0, 0);
-        } else {
-          const chars = String(textSet.text).split('');
-          const totalWidth = chars.reduce((acc, ch, i) => {
-            const w = ctx.measureText(ch).width;
-            return acc + w + (i < chars.length - 1 ? spacingPx : 0);
-          }, 0);
-          let currentX = -totalWidth / 2;
-          chars.forEach((ch) => {
-            const w = ctx.measureText(ch).width;
-            ctx.fillText(ch, currentX + w / 2, 0);
-            currentX += w + spacingPx;
-          });
-        }
-
-        ctx.restore();
-      });
-
-      // 6) Overlay the foreground subjects (people/objects) on top of text
+      
       if (removedBgImageUrl) {
+        // If we have background removal, create proper layering:
+        // 1. Draw original background (without the main subject)
+        // 2. Draw text on top of background
+        // 3. Draw main subject on top of text
+        
+        // First, draw the original image as background
+        ctx.drawImage(bgImg, 0, 0, imgW, imgH);
+        
+        // Then draw text layers
+        textSets.forEach(textSet => {
+          ctx.save();
+
+          // Convert % (relative to preview box) into preview pixels:
+          const xPreview = (boxW * (textSet.left + 50)) / 100;     // same formula used on-screen
+          const yPreview = (boxH * (50 - textSet.top)) / 100;
+
+          // Convert preview pixels into image pixels by removing letterbox and scaling
+          const xImg = (xPreview - contain.dx) * toImageScale;
+          const yImg = (yPreview - contain.dy) * toImageScale;
+
+          // Scale font size, letterSpacing, shadow to image pixels
+          const fontSizePx = Math.max(1, textSet.fontSize * toImageScale);
+          const spacingPx = (textSet.letterSpacing || 0) * toImageScale;
+          const shadowBlurPx = (textSet.shadowSize || 0) * toImageScale;
+
+          ctx.font = `${textSet.fontWeight} ${fontSizePx}px ${textSet.fontFamily}`;
+          ctx.fillStyle = textSet.color;
+          ctx.globalAlpha = textSet.opacity;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Approximate CSS textShadow using canvas shadows
+          ctx.shadowColor = textSet.shadowColor || 'rgba(0,0,0,0)';
+          ctx.shadowBlur = shadowBlurPx;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+
+          // Apply tilt/rotation transforms
+          ctx.translate(xImg, yImg);
+          const tiltXRad = (-textSet.tiltX * Math.PI) / 180;
+          const tiltYRad = (-textSet.tiltY * Math.PI) / 180;
+          ctx.transform(
+            Math.cos(tiltYRad),
+            0,
+            0,
+            Math.cos(tiltXRad),
+            0,
+            0
+          );
+          ctx.rotate((textSet.rotation * Math.PI) / 180);
+
+          // Render with optional letter-spacing
+          if (!spacingPx) {
+            ctx.fillText(textSet.text, 0, 0);
+          } else {
+            const chars = String(textSet.text).split('');
+            const totalWidth = chars.reduce((acc, ch, i) => {
+              const w = ctx.measureText(ch).width;
+              return acc + w + (i < chars.length - 1 ? spacingPx : 0);
+            }, 0);
+            let currentX = -totalWidth / 2;
+            chars.forEach((ch) => {
+              const w = ctx.measureText(ch).width;
+              ctx.fillText(ch, currentX + w / 2, 0);
+              currentX += w + spacingPx;
+            });
+          }
+
+          ctx.restore();
+        });
+        
+        // Finally, overlay the main subject (person/object) on top of text
         const removedBgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
         removedBgImg.crossOrigin = "anonymous";
         removedBgImg.onload = () => {
@@ -221,6 +228,71 @@ const Page = () => {
         };
         removedBgImg.src = removedBgImageUrl;
       } else {
+        // If no background removal, just draw original image with text on top
+        ctx.drawImage(bgImg, 0, 0, imgW, imgH);
+        
+        textSets.forEach(textSet => {
+          ctx.save();
+
+          // Convert % (relative to preview box) into preview pixels:
+          const xPreview = (boxW * (textSet.left + 50)) / 100;     // same formula used on-screen
+          const yPreview = (boxH * (50 - textSet.top)) / 100;
+
+          // Convert preview pixels into image pixels by removing letterbox and scaling
+          const xImg = (xPreview - contain.dx) * toImageScale;
+          const yImg = (yPreview - contain.dy) * toImageScale;
+
+          // Scale font size, letterSpacing, shadow to image pixels
+          const fontSizePx = Math.max(1, textSet.fontSize * toImageScale);
+          const spacingPx = (textSet.letterSpacing || 0) * toImageScale;
+          const shadowBlurPx = (textSet.shadowSize || 0) * toImageScale;
+
+          ctx.font = `${textSet.fontWeight} ${fontSizePx}px ${textSet.fontFamily}`;
+          ctx.fillStyle = textSet.color;
+          ctx.globalAlpha = textSet.opacity;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          // Approximate CSS textShadow using canvas shadows
+          ctx.shadowColor = textSet.shadowColor || 'rgba(0,0,0,0)';
+          ctx.shadowBlur = shadowBlurPx;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+
+          // Apply tilt/rotation transforms
+          ctx.translate(xImg, yImg);
+          const tiltXRad = (-textSet.tiltX * Math.PI) / 180;
+          const tiltYRad = (-textSet.tiltY * Math.PI) / 180;
+          ctx.transform(
+            Math.cos(tiltYRad),
+            0,
+            0,
+            Math.cos(tiltXRad),
+            0,
+            0
+          );
+          ctx.rotate((textSet.rotation * Math.PI) / 180);
+
+          // Render with optional letter-spacing
+          if (!spacingPx) {
+            ctx.fillText(textSet.text, 0, 0);
+          } else {
+            const chars = String(textSet.text).split('');
+            const totalWidth = chars.reduce((acc, ch, i) => {
+              const w = ctx.measureText(ch).width;
+              return acc + w + (i < chars.length - 1 ? spacingPx : 0);
+            }, 0);
+            let currentX = -totalWidth / 2;
+            chars.forEach((ch) => {
+              const w = ctx.measureText(ch).width;
+              ctx.fillText(ch, currentX + w / 2, 0);
+              currentX += w + spacingPx;
+            });
+          }
+
+          ctx.restore();
+        });
+        
         triggerDownload();
       }
     };
