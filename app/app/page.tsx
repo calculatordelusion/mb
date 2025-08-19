@@ -16,7 +16,8 @@ import { ModeToggle } from '@/components/mode-toggle';
 import TextCustomizer from '@/components/editor/text-customizer';
 
 import { PlusIcon, ReloadIcon, UploadIcon, DownloadIcon } from '@radix-ui/react-icons';
-import { removeBackground } from "@imgly/background-removal";
+// Remove the static import
+// import { removeBackground } from "@imgly/background-removal";
 
 import '@/app/fonts.css';
 import AppAds from '@/components/editor/app-ads';
@@ -52,6 +53,8 @@ const Page = () => {
   const setupImage = async (imageUrl: string) => {
     try {
       setIsImageSetupDone(false);
+      // Dynamically import the background removal module
+      const { removeBackground } = await import("@imgly/background-removal");
       const imageBlob = await removeBackground(imageUrl);
       const url = URL.createObjectURL(imageBlob);
       setRemovedBgImageUrl(url);
@@ -116,7 +119,7 @@ const Page = () => {
     }
 
     // 1) Load the base image to know its *actual* size
-    const bgImg = new (window as any).Image();
+          const bgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
     bgImg.crossOrigin = "anonymous";
     bgImg.onload = () => {
       const imgW = bgImg.naturalWidth || bgImg.width;
@@ -205,7 +208,7 @@ const Page = () => {
 
       // 6) Overlay the "removed background" subject (same original image size)
       if (removedBgImageUrl) {
-        const removedBgImg = new (window as any).Image();
+        const removedBgImg = new (typeof window !== 'undefined' ? window : {} as any).Image();
         removedBgImg.crossOrigin = "anonymous";
         removedBgImg.onload = () => {
           ctx.drawImage(removedBgImg, 0, 0, imgW, imgH);

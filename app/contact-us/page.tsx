@@ -8,14 +8,21 @@ import { FiArrowLeft, FiMail, FiPhone, FiMapPin, FiMessageSquare, FiArrowUp, FiS
 const ContactUs = () => {
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [theme, setTheme] = useState('system');
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!mounted) return;
+        
         // Initialize theme based on system preference
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        const systemTheme = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.classList.add(systemTheme);
         
         // Listen for system theme changes
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const mediaQuery = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)');
         const handleSystemThemeChange = (e: MediaQueryListEvent) => {
             if (theme === 'system') {
                 const newSystemTheme = e.matches ? 'dark' : 'light';
@@ -24,21 +31,25 @@ const ContactUs = () => {
             }
         };
         
-        mediaQuery.addEventListener('change', handleSystemThemeChange);
-        return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
-    }, [theme]);
+        mediaQuery?.addEventListener('change', handleSystemThemeChange);
+        return () => mediaQuery?.removeEventListener('change', handleSystemThemeChange);
+    }, [theme, mounted]);
 
     useEffect(() => {
+        if (!mounted) return;
+        
         const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 300);
+            setShowScrollTop(typeof window !== 'undefined' && window.scrollY > 300);
         };
 
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
+    }, [mounted]);
 
     const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (typeof window !== 'undefined') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const toggleTheme = (newTheme: string) => {
@@ -60,12 +71,16 @@ const ContactUs = () => {
 
     const getCurrentTheme = () => {
         if (theme === 'system') {
-            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         return theme;
     };
 
     const currentTheme = getCurrentTheme();
+
+    if (!mounted) {
+        return null; // Return null during SSR to prevent hydration mismatch
+    }
 
     return (
         <div className={`min-h-screen transition-colors duration-300 ${currentTheme === 'dark' ? 'bg-black' : 'bg-gray-50'}`}>
